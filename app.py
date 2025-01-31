@@ -17,8 +17,10 @@ if uploaded_file:
     st.write("Dataset Preview:", data.head())
 
     # Select Feature Columns
-    feature_columns = st.multiselect("Select Feature Columns", data.columns.tolist(), default=["Maize", "District", "Region", "Month"])
-    
+    # Automatically select all columns except "Price in USD"
+    feature_columns = [col for col in available_columns if col != target_column]
+    # Let user refine selection
+    selected_features = st.multiselect("Select Feature Columns", feature_columns, default=feature_columns)
     # Ensure "Price in USD" is present
     if "Price in USD" not in data.columns:
         st.error("Dataset must contain a 'Price in USD' column.")
