@@ -21,7 +21,20 @@ if uploaded_file:
     available_columns = data.columns.tolist()
 
     # Dropdown for selecting columns
-    region_column = st.selectbox("Select Region Column", available_columns)
+    Regions = data.select_dtypes(include=['object']).columns.tolist()
+    Region = st.selectbox("Regions", Regions)
+    district_column = st.selectbox("Select District Column", available_columns)
+    month_column = st.selectbox("Select Month Column", available_columns)
+    price_column = st.selectbox("Select Price Column (Target Variable)", available_columns)
+
+    # Automatically detect possible commodity columns (excluding selected ones)
+    possible_commodity_columns = [col for col in available_columns if col not in [region_column, district_column, month_column, price_column]]
+    commodity_column = st.selectbox("Select Commodity Column", possible_commodity_columns)
+
+    # Ensure user has selected all necessary columns
+    if region_column and district_column and month_column and price_column and commodity_column:
+        selected_features = [region_column, district_column, month_column, commodity_column]
+        target_column = price_column  # Set the selected price column as the target
     district_column = st.selectbox("Select District Column", available_columns)
     month_column = st.selectbox("Select Month Column", available_columns)
     price_column = st.selectbox("Select Price Column (Target Variable)", available_columns)
