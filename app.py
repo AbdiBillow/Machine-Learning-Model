@@ -31,10 +31,10 @@ if uploaded_file:
 
         # Split Data
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-
+        model = LinearRegression()
         # Train Model Button
         if st.button("Train Model"):
-            model = LinearRegression()
+            
             model.fit(X_train, y_train)
             st.success("Model Trained Successfully!")
 
