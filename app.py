@@ -16,9 +16,8 @@ if uploaded_file:
     st.write("Dataset Preview:", data.head())
 
    
- if X_col and y_col:
-    X = data[[X_col]]
-    y = data[y_col]
+x=data.drop['Price(USD)']
+y=data['Price']
  # Split Data
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
