@@ -20,24 +20,24 @@ if uploaded_file:
  # Split Data
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-            # Train Model Button
-            if st.button("Train Model"):
-                model = LinearRegression()
-                model.fit(X_train, y_train)
-                st.success("Model Trained Successfully!")
+# Train Model Button
+if st.button("Train Model"):
+    model = LinearRegression()
+    model.fit(X_train, y_train)
+    st.success("Model Trained Successfully!")
 
-                # Predict Button
-                if st.button("Make Predictions"):
-                    y_pred = model.predict(X_test)
-                    st.write("Predictions:", y_pred[:5])
+# Predict Button
+if st.button("Make Predictions"):
+    y_pred = model.predict(X_test)
+    st.write("Predictions:", y_pred[:5])
 
-                    # Evaluate Model Button
-                    if st.button("Evaluate Model"):
-                        mae = mean_absolute_error(y_test, y_pred)
-                        mse = mean_squared_error(y_test, y_pred)
-                        r2 = r2_score(y_test, y_pred)
+# Evaluate Model Button
+if st.button("Evaluate Model"):
+    mae = mean_absolute_error(y_test, y_pred)
+    mse = mean_squared_error(y_test, y_pred)
+    r2 = r2_score(y_test, y_pred)
 
-                        st.write(f"Mean Absolute Error: {mae:.4f}")
+    st.write(f"Mean Absolute Error: {mae:.4f}")
                         st.write(f"Mean Squared Error: {mse:.4f}")
                         st.write(f"R² Score: {r2:.4f}")
 
