@@ -38,16 +38,13 @@ if uploaded_file:
             model.fit(X_train, y_train)
             st.success("Model Trained Successfully!")
 
-       # Ensure the model is trained before making predictions
-      if st.button("Make Predictions"):
-         model = LinearRegression()
-         model.fit(X_train, y_train)  # Train the model first
-         y_pred = model.predict(X_test)  # Make predictions
-         st.write("Predictions:", y_pred[:5])
-
+        # Ensure the model is trained before making predictions
+        if st.button("Make Predictions"):
+            y_pred = model.predict(X_test)  # Use trained model for predictions
+            st.write("Predictions:", y_pred[:5])
 
         # Evaluate Model Button
-       if st.button("Evaluate Model"):
+        if st.button("Evaluate Model"):
             y_pred = model.predict(X_test)  # Ensure predictions are available
             mae = mean_absolute_error(y_test, y_pred)
             mse = mean_squared_error(y_test, y_pred)
@@ -56,4 +53,3 @@ if uploaded_file:
             st.write(f"Mean Absolute Error: {mae:.4f}")
             st.write(f"Mean Squared Error: {mse:.4f}")
             st.write(f"R² Score: {r2:.4f}")
-
