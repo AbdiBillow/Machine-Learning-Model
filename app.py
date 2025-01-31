@@ -15,7 +15,9 @@ uploaded_file = st.file_uploader("Upload CSV file", type=["csv"])
 if uploaded_file:
     data = pd.read_csv(uploaded_file)
     st.write("Dataset Preview:", data.head())
-# Get all available columns
+    # Define the target column
+    target_column = "Price(USD)"
+    # Get all available columns
     available_columns = data.columns.tolist()
     # Select Feature Columns
     # Automatically select all columns except "Price in USD"
