@@ -6,7 +6,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
 # Title
-st.title("Machine Learning App with Streamlit")
+st.title("Somalia Food Price Prediction Machine Learning Web Application")
 
 # Upload Data Button
 uploaded_file = st.file_uploader("Upload CSV file", type=["csv"])
