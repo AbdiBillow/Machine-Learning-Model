@@ -17,8 +17,8 @@ if uploaded_file:
 
    
  if X_col and y_col:
-            X = data[[X_col]]
-            y = data[y_col]
+    X = data[[X_col]]
+    y = data[y_col]
  # Split Data
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
