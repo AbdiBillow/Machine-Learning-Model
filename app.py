@@ -47,7 +47,7 @@ if st.button("Make Predictions"):
 
 
         # Evaluate Model Button
-        if st.button("Evaluate Model"):
+ if st.button("Evaluate Model"):
             y_pred = model.predict(X_test)  # Ensure predictions are available
             mae = mean_absolute_error(y_test, y_pred)
             mse = mean_squared_error(y_test, y_pred)
