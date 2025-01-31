@@ -40,6 +40,7 @@ if uploaded_file:
 
         # Make Predictions Button
         if st.button("Make Predictions"):
+            model = LinearRegression()
             y_pred = model.predict(X_test)
             st.write("Predictions:", y_pred[:5])
 
