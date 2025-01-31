@@ -15,15 +15,7 @@ if uploaded_file:
     data = pd.read_csv(uploaded_file)
     st.write("Dataset Preview:", data.head())
 
-    # Select Columns Button
-    if st.button("Select Columns"):
-        columns = data.columns.tolist()
-        X_col = st.selectbox("Select Feature Column", columns)
-        y_col = st.selectbox("Select Target Column", columns)
-
-        if X_col and y_col:
-            X = data[[X_col]]
-            y = data[y_col]
+   
 
             # Split Data
             X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
