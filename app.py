@@ -38,8 +38,8 @@ if st.button("Evaluate Model"):
     r2 = r2_score(y_test, y_pred)
 
     st.write(f"Mean Absolute Error: {mae:.4f}")
-                        st.write(f"Mean Squared Error: {mse:.4f}")
-                        st.write(f"R² Score: {r2:.4f}")
+    st.write(f"Mean Squared Error: {mse:.4f}")
+    st.write(f"R² Score: {r2:.4f}")
 
           
                    
