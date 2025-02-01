@@ -62,7 +62,7 @@ if uploaded_file is not None:
                st.write("### ✏️ Enter Values for Prediction")
                input_data = {}
                for col in commodity_columns:
-                   input_data[col] = st.number_input(f"Enter value for {col}", value=0.0)
+                   input_data[col] = st.number_input(f"Enter value for {col}", value=0.0,format="%.2f")
 
                if st.button("Predict"):
                    input_df = pd.DataFrame([input_data])
