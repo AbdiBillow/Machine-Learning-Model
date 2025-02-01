@@ -29,7 +29,6 @@ if uploaded_file is not None:
     if price_column and commodity_columns:
         def train_model():
             """Train the Linear Regression model"""
-            global model  # Declare model as global before assignment
             
             X = df[commodity_columns]
             y = df[price_column]
@@ -40,6 +39,7 @@ if uploaded_file is not None:
             # Train the model
             model = LinearRegression()
             model.fit(X_train, y_train)
+            st.session_state.model = model # Store the trained model in session state
 
             # Predictions and evaluation
             y_pred = model.predict(X_test)
@@ -55,24 +55,23 @@ if uploaded_file is not None:
 
         if st.button("Train Model"):
             train_model()
-
+        
         def make_predictions():
-            """Make predictions using the trained model"""
-            if model is not None:
-                st.write("### ✏️ Enter Values for Prediction")
-                input_data = {}
-                for col in commodity_columns:
-                    input_data[col] = st.number_input(f"Enter value for {col}", value=0.0)
-                
-                if st.button("Predict"):
-                    input_df = pd.DataFrame([input_data])
-                    prediction = model.predict(input_df)
-                    st.success(f"💰 Predicted Price (USD): {prediction[0]:.2f}")
-            else:
-                st.error("⚠️ Train the model first before making predictions.")
+           """Make predictions using the trained model"""
+           if st.session_state.model is not None:
+               st.write("### ✏️ Enter Values for Prediction")
+               input_data = {}
+               for col in commodity_columns:
+                   input_data[col] = st.number_input(f"Enter value for {col}", value=0.0)
+
+               if st.button("Predict"):
+                   input_df = pd.DataFrame([input_data])
+                   prediction = st.session_state.model.predict(input_df) # Use the model from session state
+                   st.success(f"💰 Predicted Price (USD): {prediction[0]:.2f}")
+           else:
+               st.error("⚠️ Train the model first before making predictions.")
 
         if st.button("Make Predictions"):
             make_predictions()
     else:
         st.warning("⚠️ Please select both the target price column and commodity feature columns.")
-
