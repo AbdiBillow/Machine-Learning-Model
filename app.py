@@ -3,6 +3,8 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+import joblib
+import matplotlib.pyplot as plt
 
 # Initialize session state for the model
 if "model" not in st.session_state:
@@ -15,64 +17,100 @@ st.title("Linear Regression Prediction App")
 uploaded_file = st.file_uploader("Upload CSV file", type=["csv"])
 
 if uploaded_file is not None:
-    df = pd.read_csv(uploaded_file)
-    st.write("### Dataset Preview")
-    st.write(df.head())
+    try:
+        df = pd.read_csv(uploaded_file)
+        st.write("### Dataset Preview")
+        st.write(df.head())
 
-    # Dropdowns for selecting columns
-    all_columns = df.columns.tolist() #Use .tolist() to ensure the columns is a list
-    commodity_columns = st.multiselect("Select Commodity Columns (Features)", all_columns)
-    region_column = st.selectbox("Select Region Column", all_columns)
-    district_column = st.selectbox("Select District Column", all_columns)
-    month_column = st.selectbox("Select Month Column", all_columns)
-    market_column = st.selectbox("Select Market Column", all_columns)
-    price_column = st.selectbox("Select Price Column (Target Variable)", all_columns)
-    if price_column and commodity_columns:
-        def train_model():
-            """Train the Linear Regression model"""
-            
-            X = df[commodity_columns]
-            y = df[price_column]
+        # Dropdowns for selecting columns
+        all_columns = df.columns.tolist()
+        commodity_columns = st.multiselect("Select Commodity Columns (Features)", all_columns)
+        price_column = st.selectbox("Select Price Column (Target Variable)", all_columns)
 
-            # Split the data
-            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+        if price_column and commodity_columns:
+            if price_column in commodity_columns:
+                st.error("⚠️ The target column (Price) should not be included in the feature columns.")
+            elif not all(df[col].dtype in [int, float] for col in commodity_columns + [price_column]):
+                st.error("⚠️ Selected feature and target columns must contain numeric data.")
+            else:
+                def train_model():
+                    """Train the Linear Regression model"""
+                    X = df[commodity_columns]
+                    y = df[price_column]
 
-            # Train the model
-            model = LinearRegression()
-            model.fit(X_train, y_train)
-            st.session_state.model = model # Store the trained model in session state
+                    # Split the data
+                    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-            # Predictions and evaluation
-            y_pred = model.predict(X_test)
-            mae = mean_absolute_error(y_test, y_pred)
-            mse = mean_squared_error(y_test, y_pred)
-            r2 = r2_score(y_test, y_pred)
+                    # Train the model
+                    model = LinearRegression()
+                    model.fit(X_train, y_train)
+                    st.session_state.model = model
 
-            st.success("✅ Model Trained Successfully!")
-            st.write("### 📊 Model Performance")
-            st.write(f"**📌 Mean Absolute Error (MAE):** {mae:.2f}")
-            st.write(f"**📌 Mean Squared Error (MSE):** {mse:.2f}")
-            st.write(f"**📌 R² Score:** {r2:.2f}")
+                    # Predictions and evaluation
+                    y_pred = model.predict(X_test)
+                    mae = mean_absolute_error(y_test, y_pred)
+                    mse = mean_squared_error(y_test, y_pred)
+                    r2 = r2_score(y_test, y_pred)
 
-        if st.button("Train Model"):
-            train_model()
-        
-        def make_predictions():
-           """Make predictions using the trained model"""
-           if st.session_state.model is not None:
-               st.write("### ✏️ Enter Values for Prediction")
-               input_data = {}
-               for col in commodity_columns:
-                   input_data[col] = st.number_input(f"Enter value for {col}", value=0.0,format="%.2f")
+                    st.success("✅ Model Trained Successfully!")
+                    st.write("### 📊 Model Performance")
+                    st.write(f"**📌 Mean Absolute Error (MAE):** {mae:.2f}")
+                    st.write(f"**📌 Mean Squared Error (MSE):** {mse:.2f}")
+                    st.write(f"**📌 R² Score:** {r2:.2f}")
 
-               if st.button("Predict"):
-                   input_df = pd.DataFrame([input_data])
-                   prediction = st.session_state.model.predict(input_df) # Use the model from session state
-                   st.success(f"💰 Predicted Price (USD): {prediction[0]:.2f}")
-           else:
-               st.error("⚠️ Train the model first before making predictions.")
+                    # Display coefficients
+                    st.write("### 📈 Model Coefficients")
+                    coefficients = pd.DataFrame({
+                        "Feature": commodity_columns,
+                        "Coefficient": model.coef_
+                    })
+                    st.write(coefficients)
+                    st.write(f"**Intercept:** {model.intercept_:.2f}")
 
-        if st.button("Make Predictions"):
-            make_predictions()
-    else:
-        st.warning("⚠️ Please select both the target price column and commodity feature columns.")
+                    # Visualize predictions
+                    st.write("### 📊 Actual vs Predicted Prices")
+                    fig, ax = plt.subplots()
+                    ax.scatter(y_test, y_pred, alpha=0.5)
+                    ax.plot([y_test.min(), y_test.max()], [y_test.min(), y_test.max()], 'r--')
+                    ax.set_xlabel("Actual Prices")
+                    ax.set_ylabel("Predicted Prices")
+                    ax.set_title("Actual vs Predicted Prices")
+                    st.pyplot(fig)
+
+                if st.button("Train Model"):
+                    train_model()
+
+                def make_predictions():
+                    """Make predictions using the trained model"""
+                    if st.session_state.model is not None:
+                        st.write("### ✏️ Enter Values for Prediction")
+                        input_data = {}
+                        for col in commodity_columns:
+                            input_data[col] = st.number_input(f"Enter value for {col}", value=0.0, format="%.2f")
+
+                        if st.button("Predict"):
+                            input_df = pd.DataFrame([input_data])
+                            prediction = st.session_state.model.predict(input_df)
+                            st.success(f"💰 Predicted Price (USD): {prediction[0]:.2f}")
+                    else:
+                        st.error("⚠️ Train the model first before making predictions.")
+
+                make_predictions()
+
+                # Save and load model
+                if st.session_state.model is not None:
+                    if st.button("Save Model"):
+                        joblib.dump(st.session_state.model, "linear_regression_model.pkl")
+                        st.success("Model saved successfully as 'linear_regression_model.pkl'.")
+
+                if st.button("Load Model"):
+                    try:
+                        st.session_state.model = joblib.load("linear_regression_model.pkl")
+                        st.success("Model loaded successfully!")
+                    except FileNotFoundError:
+                        st.error("⚠️ No saved model found. Train and save a model first.")
+
+    except Exception as e:
+        st.error(f"⚠️ Error reading the file: {e}")
+
+       
