@@ -11,7 +11,7 @@ if "model" not in st.session_state:
     st.session_state.model = None
 
 # Streamlit UI
-st.title("Linear Regression Prediction App")
+st.title("Food Price Prediction App")
 
 # Upload dataset
 uploaded_file = st.file_uploader("Upload CSV file", type=["csv"])
@@ -22,10 +22,9 @@ if uploaded_file is not None:
         st.write("### Dataset Preview")
         st.write(df.head())
 
-        # Dropdowns for selecting columns
-        all_columns = df.columns.tolist()
-        commodity_columns = st.multiselect("Select Commodity Columns (Features)", all_columns)
-        price_column = st.selectbox("Select Price Column (Target Variable)", all_columns)
+        # Extract commodity columns (features)
+        commodity_columns = [col for col in df.columns if col.startswith('Commodity_')]
+        price_column = 'Price(USD)'  # Assuming the target column is 'Price(USD)'
 
         if price_column and commodity_columns:
             if price_column in commodity_columns:
@@ -84,14 +83,24 @@ if uploaded_file is not None:
                     """Make predictions using the trained model"""
                     if st.session_state.model is not None:
                         st.write("### ✏️ Enter Values for Prediction")
-                        input_data = {}
-                        for col in commodity_columns:
-                            input_data[col] = st.number_input(f"Enter value for {col}", value=0.0, format="%.2f")
+
+                        # Dropdowns for selecting month, commodity, district, and market
+                        selected_month = st.selectbox("Select Month", range(1, 13))
+                        selected_commodity = st.selectbox("Select Commodity", commodity_columns)
+                        selected_district = st.selectbox("Select District", [col for col in df.columns if col.startswith('District_')])
+                        selected_market = st.selectbox("Select Market", [col for col in df.columns if col.startswith('Market_')])
 
                         if st.button("Predict"):
+                            # Create input data for prediction
+                            input_data = {col: 0 for col in commodity_columns}
+                            input_data[selected_commodity] = 1  # Set the selected commodity to 1
+
+                            # Convert input data to DataFrame
                             input_df = pd.DataFrame([input_data])
+
+                            # Predict the price
                             prediction = st.session_state.model.predict(input_df)
-                            st.success(f"💰 Predicted Price (USD): {prediction[0]:.2f}")
+                            st.success(f"💰 Predicted Price (USD) for {selected_commodity} in {selected_district} at {selected_market} in month {selected_month}: ${prediction[0]:.2f}")
                     else:
                         st.error("⚠️ Train the model first before making predictions.")
 
@@ -112,5 +121,4 @@ if uploaded_file is not None:
 
     except Exception as e:
         st.error(f"⚠️ Error reading the file: {e}")
-
        
