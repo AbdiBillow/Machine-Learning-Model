@@ -20,12 +20,13 @@ if uploaded_file is not None:
     st.write(df.head())
 
     # Dropdowns for selecting columns
-    region_column = st.selectbox("Select Region Column", df.columns)
-    district_column = st.selectbox("Select District Column", df.columns)
-    month_column = st.selectbox("Select Month Column", df.columns)
-    price_column = st.selectbox("Select Price Column (Target Variable)", df.columns)
-    commodity_columns = st.multiselect("Select Commodity Columns (Features)", df.columns)
-
+   all_columns = df.columns.tolist() #Use .tolist() to ensure the columns is a list
+    commodity_columns = st.multiselect("Select Commodity Columns (Features)", all_columns)
+    region_column = st.selectbox("Select Region Column", all_columns)
+    district_column = st.selectbox("Select District Column", all_columns)
+    month_column = st.selectbox("Select Month Column", all_columns)
+    market_column = st.selectbox("Select Market Column", all_columns)
+    price_column = st.selectbox("Select Price Column (Target Variable)", all_columns)
     if price_column and commodity_columns:
         def train_model():
             """Train the Linear Regression model"""
