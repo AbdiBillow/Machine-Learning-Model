@@ -20,7 +20,7 @@ if uploaded_file is not None:
     st.write(df.head())
 
     # Dropdowns for selecting columns
-   all_columns = df.columns.tolist() #Use .tolist() to ensure the columns is a list
+    all_columns = df.columns.tolist() #Use .tolist() to ensure the columns is a list
     commodity_columns = st.multiselect("Select Commodity Columns (Features)", all_columns)
     region_column = st.selectbox("Select Region Column", all_columns)
     district_column = st.selectbox("Select District Column", all_columns)
