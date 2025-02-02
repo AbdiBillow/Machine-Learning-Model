@@ -84,23 +84,27 @@ if uploaded_file is not None:
                     if st.session_state.model is not None:
                         st.write("### ✏️ Enter Values for Prediction")
 
-                        # Dropdowns for selecting month, commodity, district, and market
+                        # Dropdowns for selecting month and commodity
                         selected_month = st.selectbox("Select Month", range(1, 13))
                         selected_commodity = st.selectbox("Select Commodity", commodity_columns)
-                        selected_district = st.selectbox("Select District", [col for col in df.columns if col.startswith('District_')])
-                        selected_market = st.selectbox("Select Market", [col for col in df.columns if col.startswith('Market_')])
 
                         if st.button("Predict"):
                             # Create input data for prediction
                             input_data = {col: 0 for col in commodity_columns}
-                            input_data[selected_commodity] = 1  # Set the selected commodity to 1
+                            input_data[selected_commodity] = 1  # Set the selected commodity to 1 (1 kg)
 
                             # Convert input data to DataFrame
                             input_df = pd.DataFrame([input_data])
 
                             # Predict the price
                             prediction = st.session_state.model.predict(input_df)
-                            st.success(f"💰 Predicted Price (USD) for {selected_commodity} in {selected_district} at {selected_market} in month {selected_month}: ${prediction[0]:.2f}")
+                            predicted_price = prediction[0]
+
+                            # Ensure the predicted price is for 1 kg and is reasonable
+                            if predicted_price < 1:  # Assuming prices are in USD per kg
+                                st.success(f"💰 Predicted Price for 1 kg of {selected_commodity} in month {selected_month}: ${predicted_price:.2f}")
+                            else:
+                                st.warning(f"⚠️ Predicted price for 1 kg of {selected_commodity} in month {selected_month} is unusually high: ${predicted_price:.2f}. Please check the data or model.")
                     else:
                         st.error("⚠️ Train the model first before making predictions.")
 
