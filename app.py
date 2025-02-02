@@ -22,7 +22,9 @@ if uploaded_file is not None:
         df = pd.read_csv(uploaded_file)
         st.write("### Dataset Preview")
         st.write(df.head())
-        print(df['Price'].isnull().sum())
+        print(df['Price(USD)'].isnull().sum())
+        scaler=MinMaxScaler()
+        df['Price(USD)']=scaler.fit_transform(df[['Price(USD)']])
         # Extract commodity columns (features)
         commodity_columns = [col for col in df.columns if col.startswith('Commodity_')]
         price_column = 'Price(USD)'  # Assuming the target column is 'Price(USD)'
