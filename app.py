@@ -5,7 +5,7 @@ from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 import joblib
 import matplotlib.pyplot as plt
-from sklearn.preprocessing import MinMaxScaler
+
 
 # Initialize session state for the model
 if "model" not in st.session_state:
@@ -23,8 +23,7 @@ if uploaded_file is not None:
         st.write("### Dataset Preview")
         st.write(df.head())
         print(df['Price(USD)'].isnull().sum())
-        scaler=MinMaxScaler()
-        df['Price(USD)']=scaler.fit_transform(df[['Price(USD)']])
+        
         # Extract commodity columns (features)
         commodity_columns = [col for col in df.columns if col.startswith('Commodity_')]
         price_column = 'Price(USD)'  # Assuming the target column is 'Price(USD)'
@@ -41,7 +40,7 @@ if uploaded_file is not None:
                     y = df[price_column]
 
                     # Split the data
-                    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+                    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25, random_state=42)
 
                     # Train the model
                     model = LinearRegression()
