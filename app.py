@@ -26,6 +26,9 @@ if uploaded_file is not None:
         
         # Extract commodity columns (features)
         commodity_columns = [col for col in df.columns if col.startswith('Commodity_')]
+        Year=[col for col in df.columns if col.startswith('Year')]
+        regions=[col for col in df.columns if col.startswith('Region_')]
+        markets=[col for col in df.columns if col.startswith('Market_')]
         price_column = 'Price(USD)'  # Assuming the target column is 'Price(USD)'
 
         if price_column and commodity_columns:
@@ -36,7 +39,7 @@ if uploaded_file is not None:
             else:
                 def train_model():
                     """Train the Linear Regression model"""
-                    X = df[commodity_columns]
+                    X = df[commodity_columns,Year,regions,markets]
                     y = df[price_column]
 
                     # Split the data
