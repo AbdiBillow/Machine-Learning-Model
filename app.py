@@ -62,7 +62,7 @@ if uploaded_file is not None:
                     # Display coefficients
                     st.write("### 📈 Model Coefficients")
                     coefficients = pd.DataFrame({
-                        "Feature": commodity_columns,Year
+                        "Feature": commodity_columns
                         "Coefficient": model.coef_
                     })
                     st.write(coefficients)
