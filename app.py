@@ -34,7 +34,7 @@ if uploaded_file is not None:
         if price_column and commodity_columns:
             if price_column in commodity_columns:
                 st.error("⚠️ The target column (Price) should not be included in the feature columns.")
-            elif not all(df[col].dtype in [int, float] for col in commodity_columns + [price_column]):
+            elif not all(df[col].dtype in [int, float] for col in commodity_columns+Year+markets+region+[price_column]):
                 st.error("⚠️ Selected feature and target columns must contain numeric data.")
             else:
                 def train_model():
