@@ -89,7 +89,7 @@ if uploaded_file is not None:
                         # Dropdowns for selecting month and commodity
                         selected_month = st.selectbox("Select Month", range(1, 13))
                         selected_commodity = st.selectbox("Select Commodity", commodity_columns)
-
+                        Year=st.selectbox('Select Year',Year)
                         if st.button("Predict"):
                             # Create input data for prediction
                             input_data = {col: 0 for col in commodity_columns}
