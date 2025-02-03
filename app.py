@@ -15,8 +15,9 @@ if "model" not in st.session_state:
 
 # Streamlit UI
 st.title("Food Price Prediction App")
+import streamlit as st
+st.sidebar.info("The Machine Learning Model will make Food Price Prediction for Common Food Groups in Somalia.")
 
-st.sidebar.write('The Machine Learning Model will make Food Price Prediction for Common Food Groups in Somalia')
 # Upload dataset
 uploaded_file = st.file_uploader("Upload CSV file", type=["csv"])
 
