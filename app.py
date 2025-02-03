@@ -103,7 +103,7 @@ if uploaded_file is not None:
                             predicted_price = prediction[0]
 
                             # Ensure the predicted price is for 1 kg and is reasonable
-                            if predicted_price => 1:  # Assuming prices are in USD per kg
+                            if predicted_price == 1:  # Assuming prices are in USD per kg
                                 st.success(f"💰 Predicted Price for 1 kg of {selected_commodity} in month {selected_month}: ${predicted_price:.2f}")
                             else:
                                 st.warning(f"⚠️ Predicted price for 1 kg of {selected_commodity} in month {selected_month} is unusually high: ${predicted_price:.2f}. Please check the data or model.")
