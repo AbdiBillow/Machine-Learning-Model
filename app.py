@@ -26,20 +26,17 @@ if uploaded_file is not None:
         
         # Extract commodity columns (features)
         commodity_columns = [col for col in df.columns if col.startswith('Commodity_')]
-        Year=[col for col in df.columns if col.startswith('Year')]
-        regions=[col for col in df.columns if col.startswith('Region_')]
-        markets=[col for col in df.columns if col.startswith('Market_')]
         price_column = 'Price(USD)'  # Assuming the target column is 'Price(USD)'
 
         if price_column and commodity_columns:
             if price_column in commodity_columns:
                 st.error("⚠️ The target column (Price) should not be included in the feature columns.")
-            elif not all(df[col].dtype in [int, float] for col in commodity_columns+Year+markets+regions+[price_column]):
+            elif not all(df[col].dtype in [int, float] for col in commodity_columns +[price_column]):
                 st.error("⚠️ Selected feature and target columns must contain numeric data.")
             else:
                 def train_model():
                     """Train the Linear Regression model"""
-                    X = df[commodity_columns,Year,regions,markets]
+                    X = df[commodity_columns]
                     y = df[price_column]
 
                     # Split the data
