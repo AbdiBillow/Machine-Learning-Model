@@ -63,7 +63,7 @@ if uploaded_file is not None:
                     st.write("### 📈 Model Coefficients")
                     coefficients = pd.DataFrame({
                         "Feature": commodity_columns
-                        "Coefficient": model.coef_
+                    
                     })
                     st.write(coefficients)
                     st.write(f"**Intercept:** {model.intercept_:.2f}")
