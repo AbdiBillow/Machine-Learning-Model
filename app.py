@@ -41,7 +41,7 @@ if uploaded_file is not None:
 
         if target_column and selected_features:
             # Preprocessing pipeline
-        if st.button('Data Preprocessing'):
+            if st.button('Data Preprocessing'):
         try:     
             preprocessor = ColumnTransformer(
             transformers=[
