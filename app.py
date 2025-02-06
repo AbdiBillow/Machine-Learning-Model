@@ -44,7 +44,7 @@ if uploaded_file is not None:
     if st.button('Data Preprocessing'):
         try:     
             preprocessor = ColumnTransformer(
-                transformers=[
+            transformers=[
                     ('cat', OneHotEncoder(handle_unknown='ignore'), [f for f in selected_features if f in categorical_features]),
                     ('num', StandardScaler(), [f for f in selected_features if f in numeric_features])
                 ],
@@ -53,8 +53,8 @@ if uploaded_file is not None:
 
             # Create pipeline
             model = Pipeline(steps=[
-                ('preprocessor', preprocessor),
-                ('regressor', LinearRegression())
+            ('preprocessor', preprocessor),
+            ('regressor', LinearRegression())
             ])
 
             # Split data
