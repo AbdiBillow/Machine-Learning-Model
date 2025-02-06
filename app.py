@@ -42,30 +42,30 @@ if uploaded_file is not None:
         if target_column and selected_features:
             # Preprocessing pipeline
             if st.button('Data Preprocessing'):
-        try:     
-            preprocessor = ColumnTransformer(
-            transformers=[
-                    ('cat', OneHotEncoder(handle_unknown='ignore'), [f for f in selected_features if f in categorical_features]),
-                    ('num', StandardScaler(), [f for f in selected_features if f in numeric_features])
-                ],
-                remainder='drop'
-            )
-
-            # Create pipeline
-            model = Pipeline(steps=[
-            ('preprocessor', preprocessor),
-            ('regressor', LinearRegression())
-            ])
-
-            # Split data
-            X = df[selected_features]
-            y = df[target_column]
-
-            # Handle missing values
-            if X.isnull().sum().any() or y.isnull().any():
-                st.warning("⚠️ Missing values detected. Simple imputation applied.")
-                X = X.fillna(X.mean())  # Numeric: fill with mean
-                y = y.fillna(y.mean())
+            try:     
+                preprocessor = ColumnTransformer(
+                transformers=[
+                        ('cat', OneHotEncoder(handle_unknown='ignore'), [f for f in selected_features if f in categorical_features]),
+                        ('num', StandardScaler(), [f for f in selected_features if f in numeric_features])
+                    ],
+                    remainder='drop'
+                )
+    
+                # Create pipeline
+                model = Pipeline(steps=[
+                ('preprocessor', preprocessor),
+                ('regressor', LinearRegression())
+                ])
+    
+                # Split data
+                X = df[selected_features]
+                y = df[target_column]
+    
+                # Handle missing values
+                if X.isnull().sum().any() or y.isnull().any():
+                    st.warning("⚠️ Missing values detected. Simple imputation applied.")
+                    X = X.fillna(X.mean())  # Numeric: fill with mean
+                    y = y.fillna(y.mean())
 
             X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
