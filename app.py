@@ -6,10 +6,13 @@ from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
-import joblib
 import matplotlib.pyplot as plt
 
-# Initialize session state for the model
+# Initialize session state
+if "data_processed" not in st.session_state:
+    st.session_state.data_processed = False
+if "model_trained" not in st.session_state:
+    st.session_state.model_trained = False
 if "model" not in st.session_state:
     st.session_state.model = None
 
@@ -39,7 +42,11 @@ if uploaded_file is not None:
         )
         target_column = st.selectbox("Select Target Column", df.columns.tolist())
 
-        if st.button('Data Preprocessing'):
+
+        # Data Preprocessing Button and Logic
+        preprocess_button = st.button('Data Preprocessing', disabled=st.session_state.data_processed)
+
+        if preprocess_button:
             try:
                 if target_column and selected_features:
                     # Preprocessing pipeline
@@ -69,43 +76,69 @@ if uploaded_file is not None:
 
                     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-                    # Train model
-                    if st.button("Train Model"):
-                        try:
-                            model.fit(X_train, y_train)
-                            st.session_state.model = model
-                            st.success("✅ Model Trained Successfully!")
+                    st.session_state.X_train = X_train
+                    st.session_state.X_test = X_test
+                    st.session_state.y_train = y_train
+                    st.session_state.y_test = y_test
+                    st.session_state.model = model
 
-                            # Evaluate
-                            y_pred = model.predict(X_test)
-                            st.write("### 📊 Model Performance")
-                            st.write(f"**MAE:** {mean_absolute_error(y_test, y_pred):.2f}")
-                            st.write(f"**MSE:** {mean_squared_error(y_test, y_pred):.2f}")
-                            st.write(f"**R²:** {r2_score(y_test, y_pred):.2f}")
+                    st.success("✅ Data Preprocessing successful!")
+                    st.session_state.data_processed = True
 
-                        except Exception as e:
-                            st.error(f"❌ Training failed: {str(e)}")
 
-                    # Prediction UI
-                    if st.session_state.model:
-                        st.write("### ✏️ Make Predictions")
-                        input_data = {}
-                        for feature in selected_features:
-                            if feature in categorical_features:
-                                input_data[feature] = st.selectbox(f"{feature}", df[feature].unique())
-                            else:
-                                input_data[feature] = st.number_input(f"{feature}", value=df[feature].mean())
-
-                        if st.button("Predict"):
-                            try:
-                                input_df = pd.DataFrame([input_data])
-                                prediction = st.session_state.model.predict(input_df)
-                                st.success(f"💰 Predicted {target_column}: **{prediction[0]:.2f}**")
-                            except Exception as e:
-                                st.error(f"❌ Prediction failed: {str(e)}")
+                else:
+                    st.warning("Please select both target column and features.")
 
             except Exception as e:
                 st.error(f"❌ Preprocessing failed: {str(e)}")
+
+
+        # Train Model Button and Logic
+        train_button = st.button("Train Model", disabled=not st.session_state.data_processed or st.session_state.model_trained)
+
+        if train_button:
+            try:
+                model = st.session_state.model
+                X_train = st.session_state.X_train
+                y_train = st.session_state.y_train
+                X_test = st.session_state.X_test
+                y_test = st.session_state.y_test
+
+
+                model.fit(X_train, y_train)
+                st.session_state.model = model
+                st.success("✅ Model Trained Successfully!")
+                st.session_state.model_trained = True
+
+                # Evaluate
+                y_pred = model.predict(X_test)
+                st.write("### 📊 Model Performance")
+                st.write(f"**MAE:** {mean_absolute_error(y_test, y_pred):.2f}")
+                st.write(f"**MSE:** {mean_squared_error(y_test, y_pred):.2f}")
+                st.write(f"**R²:** {r2_score(y_test, y_pred):.2f}")
+
+            except Exception as e:
+                st.error(f"❌ Training failed: {str(e)}")
+
+
+        # Prediction UI
+        if st.session_state.model and st.session_state.model_trained:
+            st.write("### ✏️ Make Predictions")
+            input_data = {}
+            for feature in selected_features:
+                if feature in categorical_features:
+                    input_data[feature] = st.selectbox(f"{feature}", df[feature].unique())
+                else:
+                    input_data[feature] = st.number_input(f"{feature}", value=df[feature].mean())
+
+            if st.button("Predict"):
+                try:
+                    input_df = pd.DataFrame([input_data])
+                    prediction = st.session_state.model.predict(input_df)
+                    st.success(f"💰 Predicted {target_column}: **{prediction[0]:.2f}**")
+                except Exception as e:
+                    st.error(f"❌ Prediction failed: {str(e)}")
+
 
     except Exception as e:
         st.error(f"⚠️ Error reading the file: {str(e)}")
