@@ -15,7 +15,6 @@ if "model" not in st.session_state:
 
 # Streamlit UI
 st.title("Food Price Prediction App")
-import streamlit as st
 st.sidebar.info("The Machine Learning Model will make Food Price Prediction for Common Food Groups in Somalia.")
 
 # Upload dataset
