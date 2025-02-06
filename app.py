@@ -41,6 +41,8 @@ if uploaded_file is not None:
 
         if target_column and selected_features:
             # Preprocessing pipeline
+    if st.button('Data Preprocessing'):
+        try:     
             preprocessor = ColumnTransformer(
                 transformers=[
                     ('cat', OneHotEncoder(handle_unknown='ignore'), [f for f in selected_features if f in categorical_features]),
