@@ -38,11 +38,11 @@ if uploaded_file is not None:
             default=categorical_features + numeric_features
         )
         target_column = st.selectbox("Select Target Column", df.columns.tolist())
-
-        if target_column and selected_features:
+        if st.button('Data Preprocessing'):
+            try:
+            if target_column and selected_features:
             # Preprocessing pipeline
-            if st.button('Data Preprocessing'):
-            try:     
+               
                 preprocessor = ColumnTransformer(
                 transformers=[
                         ('cat', OneHotEncoder(handle_unknown='ignore'), [f for f in selected_features if f in categorical_features]),
