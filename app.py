@@ -38,71 +38,74 @@ if uploaded_file is not None:
             default=categorical_features + numeric_features
         )
         target_column = st.selectbox("Select Target Column", df.columns.tolist())
+
         if st.button('Data Preprocessing'):
             try:
-            if target_column and selected_features:
-            # Preprocessing pipeline
-               
-                preprocessor = ColumnTransformer(
-                transformers=[
-                        ('cat', OneHotEncoder(handle_unknown='ignore'), [f for f in selected_features if f in categorical_features]),
-                        ('num', StandardScaler(), [f for f in selected_features if f in numeric_features])
-                    ],
-                    remainder='drop'
-                )
-    
-                # Create pipeline
-                model = Pipeline(steps=[
-                ('preprocessor', preprocessor),
-                ('regressor', LinearRegression())
-                ])
-    
-                # Split data
-                X = df[selected_features]
-                y = df[target_column]
-    
-                # Handle missing values
-                if X.isnull().sum().any() or y.isnull().any():
-                    st.warning("⚠️ Missing values detected. Simple imputation applied.")
-                    X = X.fillna(X.mean())  # Numeric: fill with mean
-                    y = y.fillna(y.mean())
+                if target_column and selected_features:
+                    # Preprocessing pipeline
+                    preprocessor = ColumnTransformer(
+                        transformers=[
+                            ('cat', OneHotEncoder(handle_unknown='ignore'), [f for f in selected_features if f in categorical_features]),
+                            ('num', StandardScaler(), [f for f in selected_features if f in numeric_features])
+                        ],
+                        remainder='drop'
+                    )
 
-            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+                    # Create pipeline
+                    model = Pipeline(steps=[
+                        ('preprocessor', preprocessor),
+                        ('regressor', LinearRegression())
+                    ])
 
-            # Train model
-            if st.button("Train Model"):
-                try:
-                    model.fit(X_train, y_train)
-                    st.session_state.model = model
-                    st.success("✅ Model Trained Successfully!")
+                    # Split data
+                    X = df[selected_features]
+                    y = df[target_column]
 
-                    # Evaluate
-                    y_pred = model.predict(X_test)
-                    st.write("### 📊 Model Performance")
-                    st.write(f"**MAE:** {mean_absolute_error(y_test, y_pred):.2f}")
-                    st.write(f"**MSE:** {mean_squared_error(y_test, y_pred):.2f}")
-                    st.write(f"**R²:** {r2_score(y_test, y_pred):.2f}")
+                    # Handle missing values
+                    if X.isnull().sum().any() or y.isnull().any():
+                        st.warning("⚠️ Missing values detected. Simple imputation applied.")
+                        X = X.fillna(X.mean())  # Numeric: fill with mean
+                        y = y.fillna(y.mean())
 
-                except Exception as e:
-                    st.error(f"❌ Training failed: {str(e)}")
+                    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-            # Prediction UI
-            if st.session_state.model:
-                st.write("### ✏️ Make Predictions")
-                input_data = {}
-                for feature in selected_features:
-                    if feature in categorical_features:
-                        input_data[feature] = st.selectbox(f"{feature}", df[feature].unique())
-                    else:
-                        input_data[feature] = st.number_input(f"{feature}", value=df[feature].mean())
+                    # Train model
+                    if st.button("Train Model"):
+                        try:
+                            model.fit(X_train, y_train)
+                            st.session_state.model = model
+                            st.success("✅ Model Trained Successfully!")
 
-                if st.button("Predict"):
-                    try:
-                        input_df = pd.DataFrame([input_data])
-                        prediction = st.session_state.model.predict(input_df)
-                        st.success(f"💰 Predicted {target_column}: **{prediction[0]:.2f}**")
-                    except Exception as e:
-                        st.error(f"❌ Prediction failed: {str(e)}")
+                            # Evaluate
+                            y_pred = model.predict(X_test)
+                            st.write("### 📊 Model Performance")
+                            st.write(f"**MAE:** {mean_absolute_error(y_test, y_pred):.2f}")
+                            st.write(f"**MSE:** {mean_squared_error(y_test, y_pred):.2f}")
+                            st.write(f"**R²:** {r2_score(y_test, y_pred):.2f}")
+
+                        except Exception as e:
+                            st.error(f"❌ Training failed: {str(e)}")
+
+                    # Prediction UI
+                    if st.session_state.model:
+                        st.write("### ✏️ Make Predictions")
+                        input_data = {}
+                        for feature in selected_features:
+                            if feature in categorical_features:
+                                input_data[feature] = st.selectbox(f"{feature}", df[feature].unique())
+                            else:
+                                input_data[feature] = st.number_input(f"{feature}", value=df[feature].mean())
+
+                        if st.button("Predict"):
+                            try:
+                                input_df = pd.DataFrame([input_data])
+                                prediction = st.session_state.model.predict(input_df)
+                                st.success(f"💰 Predicted {target_column}: **{prediction[0]:.2f}**")
+                            except Exception as e:
+                                st.error(f"❌ Prediction failed: {str(e)}")
+
+            except Exception as e:
+                st.error(f"❌ Preprocessing failed: {str(e)}")
 
     except Exception as e:
         st.error(f"⚠️ Error reading the file: {str(e)}")
