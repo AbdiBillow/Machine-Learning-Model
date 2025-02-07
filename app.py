@@ -112,7 +112,6 @@ if uploaded_file is not None:
 
         # Train Model Button and Logic
         train_button = st.button("Train Model", disabled=not st.session_state.data_processed or st.session_state.model_trained)
-
         if train_button:
             try:
                 model = st.session_state.model
