@@ -135,7 +135,7 @@ if uploaded_file is not None:
             except Exception as e:
                 st.error(f"❌ Training failed: {str(e)}")
 
-       if st.session_state.model and st.session_state.model_trained:
+    if st.session_state.model and st.session_state.model_trained:
     st.write("### ✏️ Predict Future Prices")
     
     input_data = {}
