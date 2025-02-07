@@ -139,9 +139,65 @@ if uploaded_file is not None:
                 except Exception as e:
                     st.error(f"❌ Prediction failed: {str(e)}")
 
+            # Future Prediction Section
+            st.write("### 🔮 Predict 2026 Prices")
+            
+            # Check if required temporal features exist
+            temporal_features = ['Year', 'Month']
+            if not all(feat in selected_features for feat in temporal_features):
+                st.warning("⚠️ Future predictions require 'Year' and 'Month' in selected features")
+            else:
+                # Find commodity feature (first categorical feature that's not temporal)
+                commodity_features = [f for f in categorical_features if f not in temporal_features]
+                
+                if not commodity_features:
+                    st.error("❌ No commodity feature found for prediction")
+                else:
+                    commodity_feature = commodity_features[0]
+                    
+                    # Create future prediction inputs
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        selected_commodity = st.selectbox(f"Select {commodity_feature}", 
+                                                        df[commodity_feature].unique())
+                    with col2:
+                        selected_month = st.selectbox("Select Month", 
+                                                    options=list(range(1,13)), 
+                                                    format_func=lambda x: f"Month {x}")
+
+                    # Prepare base input
+                    future_input = {
+                        'Year': 2026,
+                        'Month': selected_month,
+                        commodity_feature: selected_commodity
+                    }
+
+                    # Add other features
+                    for feature in selected_features:
+                        if feature not in temporal_features + [commodity_feature]:
+                            if feature in categorical_features:
+                                future_input[feature] = st.selectbox(
+                                    f"{feature} for 2026",
+                                    df[feature].unique()
+                                )
+                            else:
+                                default_val = df[feature].mean()
+                                future_input[feature] = st.number_input(
+                                    f"{feature} for 2026",
+                                    value=round(default_val, 2)
+                                )
+
+                    if st.button("Predict 2026 Price"):
+                        try:
+                            future_df = pd.DataFrame([future_input])
+                            prediction = st.session_state.model.predict(future_df)
+                            st.success(f"**Predicted {target_column} for {selected_commodity} in {selected_month}/2026:** "
+                                    f"${prediction[0]:.2f}")
+                        except Exception as e:
+                            st.error(f"❌ Future prediction failed: {str(e)}")
 
     except Exception as e:
-        st.error(f"⚠️ Error reading the file: {str(e)}")
+        st.error(f"❌ Error loading file: {str(e)}")
         
         
        
