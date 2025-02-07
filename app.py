@@ -138,24 +138,41 @@ if uploaded_file is not None:
 
         # Prediction UI
         if st.session_state.model and st.session_state.model_trained:
-            st.write("### ✏️ Make Predictions")
+            st.write("### Make Future Price Predictions")
             input_data = {}
             for feature in selected_features:
-                if feature in categorical_features:
-                    input_data[feature] = st.selectbox(f"{feature}", df[feature].unique())
-                else:
-                    input_data[feature] = st.number_input(f"{feature}", value=df[feature].mean())
+                if feature in categorical_features and feature != "Year":
+                    input_data[feature] = st.selectbox(f"{feature}", df[feature].astype(str).unique())
+                elif feature == "Year":
+                   input_data[feature] = st.number_input(f"{feature} (Enter Future Year)", 
+                                                  min_value=int(df["Year"].min()), 
+                                                  max_value=int(df["Year"].max()) + 10, 
+                                                  value=int(df["Year"].max()) + 1)
+        else:
+            input_data[feature] = st.number_input(f"{feature}", value=df[feature].mean())
 
-            if st.button("Predict"):
-                try:
-                    input_df = pd.DataFrame([input_data])
-                    prediction = st.session_state.model.predict(input_df)
-                    st.success(f"💰 Predicted {target_column}: **{prediction[0]:.2f}**")
-                except Exception as e:
-                    st.error(f"❌ Prediction failed: {str(e)}")
+    if st.button("Predict Future Price"):
+        try:
+            # Convert input to DataFrame
+            input_df = pd.DataFrame([input_data])
 
-    except Exception as e:
-        st.error(f"❌ Error loading file: {str(e)}")
+            # Apply same preprocessing used in training
+            transformed_input = st.session_state.model["preprocessor"].transform(input_df)
+
+            # Make prediction
+            prediction = st.session_state.model["regressor"].predict(transformed_input)
+
+            st.success(f"📅 Predicted Price for {input_data['Year']}: **{prediction[0]:.2f} USD**")
+        except Exception as e:
+            st.error(f"❌ Prediction failed: {str(e)}")
+        
+       
+                       
+                   
+                            
+
+              
+       
         
         
        
