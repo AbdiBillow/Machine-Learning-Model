@@ -1,4 +1,3 @@
-import streamlit as st
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
@@ -6,7 +5,7 @@ from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
-import matplotlib.pyplot as plt
+import streamlit as st
 
 # Initialize session state
 if "data_processed" not in st.session_state:
@@ -42,56 +41,74 @@ if uploaded_file is not None:
         )
         target_column = st.selectbox("Select Target Column", df.columns.tolist())
 
+        # Remove target from selected features
+        selected_features = [f for f in selected_features if f != target_column]
 
         # Data Preprocessing Button and Logic
         preprocess_button = st.button('Data Preprocessing', disabled=st.session_state.data_processed)
 
         if preprocess_button:
             try:
-                if target_column and selected_features:
-                    # Preprocessing pipeline
-                    preprocessor = ColumnTransformer(
-                        transformers=[
-                            ('cat', OneHotEncoder(handle_unknown='ignore'), [f for f in selected_features if f in categorical_features]),
-                            ('num', StandardScaler(), [f for f in selected_features if f in numeric_features])
-                        ],
-                        remainder='drop'
-                    )
+                # Validation checks
+                if not selected_features:
+                    st.error("❌ Please select at least one feature.")
+                    st.stop()
+                
+                if not pd.api.types.is_numeric_dtype(df[target_column]):
+                    st.error("❌ Target column must be numeric for regression.")
+                    st.stop()
 
-                    # Create pipeline
-                    model = Pipeline(steps=[
-                        ('preprocessor', preprocessor),
-                        ('regressor', LinearRegression())
-                    ])
+                # Preprocessing pipeline
+                preprocessor = ColumnTransformer(
+                    transformers=[
+                        ('cat', OneHotEncoder(handle_unknown='ignore'), 
+                         [f for f in selected_features if f in categorical_features]),
+                        ('num', StandardScaler(), 
+                         [f for f in selected_features if f in numeric_features])
+                    ],
+                    remainder='drop'
+                )
 
-                    # Split data
-                    X = df[selected_features]
-                    y = df[target_column]
+                # Create pipeline
+                model = Pipeline(steps=[
+                    ('preprocessor', preprocessor),
+                    ('regressor', LinearRegression())
+                ])
 
-                    # Handle missing values
-                    if X.isnull().sum().any() or y.isnull().any():
-                        st.warning("⚠️ Missing values detected. Simple imputation applied.")
-                        X = X.fillna(X.mean())  # Numeric: fill with mean
-                        y = y.fillna(y.mean())
+                # Split data
+                X = df[selected_features]
+                y = df[target_column]
 
-                    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+                # Handle missing values
+                if X.isnull().sum().any() or y.isnull().any():
+                    st.warning("⚠️ Missing values detected. Applying imputation...")
+                    
+                    # Numeric features
+                    num_cols = X.select_dtypes(include=['number']).columns
+                    if not num_cols.empty:
+                        X[num_cols] = X[num_cols].fillna(X[num_cols].mean())
+                    
+                    # Categorical features
+                    cat_cols = X.select_dtypes(exclude=['number']).columns
+                    for col in cat_cols:
+                        X[col] = X[col].fillna(X[col].mode().iloc[0])
+                    
+                    # Target variable
+                    y = y.fillna(y.mean())
 
-                    st.session_state.X_train = X_train
-                    st.session_state.X_test = X_test
-                    st.session_state.y_train = y_train
-                    st.session_state.y_test = y_test
-                    st.session_state.model = model
+                X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-                    st.success("✅ Data Preprocessing successful!")
-                    st.session_state.data_processed = True
+                st.session_state.X_train = X_train
+                st.session_state.X_test = X_test
+                st.session_state.y_train = y_train
+                st.session_state.y_test = y_test
+                st.session_state.model = model
 
-
-                else:
-                    st.warning("Please select both target column and features.")
+                st.success("✅ Data Preprocessing successful!")
+                st.session_state.data_processed = True
 
             except Exception as e:
                 st.error(f"❌ Preprocessing failed: {str(e)}")
-
 
         # Train Model Button and Logic
         train_button = st.button("Train Model", disabled=not st.session_state.data_processed or st.session_state.model_trained)
@@ -103,7 +120,6 @@ if uploaded_file is not None:
                 y_train = st.session_state.y_train
                 X_test = st.session_state.X_test
                 y_test = st.session_state.y_test
-
 
                 model.fit(X_train, y_train)
                 st.session_state.model = model
@@ -119,7 +135,6 @@ if uploaded_file is not None:
 
             except Exception as e:
                 st.error(f"❌ Training failed: {str(e)}")
-
 
         # Prediction UI
         if st.session_state.model and st.session_state.model_trained:
@@ -138,63 +153,6 @@ if uploaded_file is not None:
                     st.success(f"💰 Predicted {target_column}: **{prediction[0]:.2f}**")
                 except Exception as e:
                     st.error(f"❌ Prediction failed: {str(e)}")
-
-            # Future Prediction Section
-            st.write("### 🔮 Predict 2026 Prices")
-            
-            # Check if required temporal features exist
-            temporal_features = ['Year', 'Month']
-            if not all(feat in selected_features for feat in temporal_features):
-                st.warning("⚠️ Future predictions require 'Year' and 'Month' in selected features")
-            else:
-                # Find commodity feature (first categorical feature that's not temporal)
-                commodity_features = [f for f in categorical_features if f not in temporal_features]
-                
-                if not commodity_features:
-                    st.error("❌ No commodity feature found for prediction")
-                else:
-                    commodity_feature = commodity_features[0]
-                    
-                    # Create future prediction inputs
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        selected_commodity = st.selectbox(f"Select {commodity_feature}", 
-                                                        df[commodity_feature].unique())
-                    with col2:
-                        selected_month = st.selectbox("Select Month", 
-                                                    options=list(range(1,13)), 
-                                                    format_func=lambda x: f"Month {x}")
-
-                    # Prepare base input
-                    future_input = {
-                        'Year': 2026,
-                        'Month': selected_month,
-                        commodity_feature: selected_commodity
-                    }
-
-                    # Add other features
-                    for feature in selected_features:
-                        if feature not in temporal_features + [commodity_feature]:
-                            if feature in categorical_features:
-                                future_input[feature] = st.selectbox(
-                                    f"{feature} for 2026",
-                                    df[feature].unique()
-                                )
-                            else:
-                                default_val = df[feature].mean()
-                                future_input[feature] = st.number_input(
-                                    f"{feature} for 2026",
-                                    value=round(default_val, 2)
-                                )
-
-                    if st.button("Predict 2026 Price"):
-                        try:
-                            future_df = pd.DataFrame([future_input])
-                            prediction = st.session_state.model.predict(future_df)
-                            st.success(f"**Predicted {target_column} for {selected_commodity} in {selected_month}/2026:** "
-                                    f"${prediction[0]:.2f}")
-                        except Exception as e:
-                            st.error(f"❌ Future prediction failed: {str(e)}")
 
     except Exception as e:
         st.error(f"❌ Error loading file: {str(e)}")
