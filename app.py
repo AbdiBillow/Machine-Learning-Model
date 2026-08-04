@@ -14,6 +14,12 @@ if "model_trained" not in st.session_state:
     st.session_state.model_trained = False
 if "model" not in st.session_state:
     st.session_state.model = None
+if "selected_features" not in st.session_state:
+    st.session_state.selected_features = []
+if "df" not in st.session_state:
+    st.session_state.df = None
+if "uploaded_file_id" not in st.session_state:
+    st.session_state.uploaded_file_id = None
 
 # Streamlit UI
 st.title("Food Price Prediction App")
@@ -24,9 +30,27 @@ uploaded_file = st.file_uploader("Upload CSV file", type=["csv"])
 
 if uploaded_file is not None:
     try:
+        # Check if a new file has been uploaded
+        current_file_id = id(uploaded_file)
+        if st.session_state.uploaded_file_id != current_file_id:
+            # Reset session state for new file
+            st.session_state.data_processed = False
+            st.session_state.model_trained = False
+            st.session_state.model = None
+            st.session_state.selected_features = []
+            st.session_state.uploaded_file_id = current_file_id
+        
         df = pd.read_csv(uploaded_file)
+        
+        # Validate that DataFrame is not empty
+        if df.empty:
+            st.error("❌ Uploaded CSV file is empty. Please upload a valid dataset.")
+            st.stop()
+        
+        st.session_state.df = df
         st.write("### Dataset Preview")
         st.write(df.head())
+        st.write(f"**Dataset shape:** {df.shape[0]} rows × {df.shape[1]} columns")
 
         # Auto-detect feature types
         numeric_features = df.select_dtypes(include=['int64', 'float64']).columns.tolist()
@@ -34,12 +58,22 @@ if uploaded_file is not None:
 
         # Let user confirm/tweak detected features
         st.write("### Feature Selection")
+        st.info(f"📊 **Detected Features:**\n- Numeric: {numeric_features}\n- Categorical: {categorical_features}")
+        
         selected_features = st.multiselect(
             "Select Features (Categorical or Numeric)",
             df.columns.tolist(),
             default=categorical_features + numeric_features
         )
+        
+        # Store selected features in session state
+        st.session_state.selected_features = selected_features
+        
         target_column = st.selectbox("Select Target Column", df.columns.tolist())
+
+        # Validate target column is numeric
+        if target_column in selected_features and not pd.api.types.is_numeric_dtype(df[target_column]):
+            st.warning("⚠️ Warning: Selected target column is not numeric. For regression, please select a numeric column.")
 
         # Remove target from selected features
         selected_features = [f for f in selected_features if f != target_column]
@@ -69,6 +103,8 @@ if uploaded_file is not None:
                     if pd.api.types.is_numeric_dtype(df[f])
                 ]
 
+                st.info(f"✓ **Processing Features:**\n- Categorical: {categorical_features_selected}\n- Numeric: {numeric_features_selected}")
+
                 # Preprocessing pipeline
                 preprocessor = ColumnTransformer(
                     transformers=[
@@ -85,8 +121,8 @@ if uploaded_file is not None:
                 ])
 
                 # Split data
-                X = df[selected_features]
-                y = df[target_column]
+                X = df[selected_features].copy()
+                y = df[target_column].copy()
 
                 # Handle missing values
                 if X.isnull().sum().any() or y.isnull().any():
@@ -100,12 +136,23 @@ if uploaded_file is not None:
                     # Categorical features
                     cat_cols = X.select_dtypes(exclude=['number']).columns
                     for col in cat_cols:
-                        X[col] = X[col].fillna(X[col].mode().iloc[0])
+                        mode_val = X[col].mode()
+                        if len(mode_val) > 0:
+                            X[col] = X[col].fillna(mode_val.iloc[0])
+                        else:
+                            # If mode is empty, use a placeholder value
+                            X[col] = X[col].fillna('Unknown')
                     
-                    # Target variable
-                    y = y.fillna(y.mean())
+                    # Target variable - handle both numeric and edge cases
+                    y_numeric = pd.to_numeric(y, errors='coerce')
+                    if y_numeric.isnull().any():
+                        y = y_numeric.fillna(y_numeric.mean())
+                    else:
+                        y = y_numeric
 
-                X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+                X_train, X_test, y_train, y_test = train_test_split(
+                    X, y, test_size=0.2, random_state=42
+                )
 
                 # Store variables in session state
                 st.session_state.update({
@@ -115,7 +162,9 @@ if uploaded_file is not None:
                     'y_test': y_test,
                     'model': model,
                     'categorical_features_selected': categorical_features_selected,
-                    'numeric_features_selected': numeric_features_selected
+                    'numeric_features_selected': numeric_features_selected,
+                    'selected_features': selected_features,
+                    'target_column': target_column
                 })
 
                 st.success("✅ Data Preprocessing successful!")
@@ -125,7 +174,10 @@ if uploaded_file is not None:
                 st.error(f"❌ Preprocessing failed: {str(e)}")
 
         # Train Model Button and Logic
-        train_button = st.button("Train Model", disabled=not st.session_state.data_processed or st.session_state.model_trained)
+        train_button = st.button(
+            "Train Model", 
+            disabled=not st.session_state.data_processed or st.session_state.model_trained
+        )
         if train_button:
             try:
                 model = st.session_state.model
@@ -149,31 +201,54 @@ if uploaded_file is not None:
             except Exception as e:
                 st.error(f"❌ Training failed: {str(e)}")
 
+        # Reset Model Button
+        if st.session_state.model_trained:
+            if st.button("🔄 Reset Model"):
+                st.session_state.data_processed = False
+                st.session_state.model_trained = False
+                st.session_state.model = None
+                st.success("✅ Model reset. You can now preprocess and train a new model.")
+                st.rerun()
+
         # Prediction Section
         if st.session_state.model and st.session_state.model_trained:
             st.write("### ✏️ Predict Future Prices")
             
-            input_data = {}
+            # Retrieve selected features and target column from session state
+            selected_features_pred = st.session_state.get('selected_features', [])
+            target_column_pred = st.session_state.get('target_column', None)
             categorical_features = st.session_state.categorical_features_selected
             numeric_features = st.session_state.numeric_features_selected
+            
+            if not selected_features_pred or target_column_pred is None:
+                st.error("❌ Error: Feature information not found. Please preprocess again.")
+                st.stop()
+            
+            # Check if Year column exists
+            has_year = "Year" in selected_features_pred
+            
+            input_data = {}
 
-            for feature in selected_features:
+            for feature in selected_features_pred:
                 if feature in categorical_features and feature != "Year":
+                    unique_values = df[feature].astype(str).unique().tolist()
                     input_data[feature] = st.selectbox(
                         f"{feature}", 
-                        df[feature].astype(str).unique()
+                        unique_values
                     )
-                elif feature == "Year":
+                elif feature == "Year" and has_year:
+                    year_min = int(df["Year"].min())
+                    year_max = int(df["Year"].max())
                     input_data[feature] = st.number_input(
                         f"{feature} (Enter Future Year)", 
-                        min_value=int(df["Year"].min()), 
-                        max_value=int(df["Year"].max()) + 10, 
-                        value=int(df["Year"].max()) + 1
+                        min_value=year_min, 
+                        max_value=year_max + 10, 
+                        value=year_max + 1
                     )
                 else:
                     input_data[feature] = st.number_input(
                         f"{feature}", 
-                        value=df[feature].mean()
+                        value=float(df[feature].mean())
                     )
 
             # Prediction button
@@ -185,28 +260,12 @@ if uploaded_file is not None:
                     # Make prediction using the full pipeline
                     prediction = st.session_state.model.predict(input_df)
 
-                    st.success(f"📅 Predicted Price for {input_data['Year']}: **{prediction[0]:.2f} USD**")
+                    # Determine year for display
+                    display_year = input_data.get('Year', 'N/A')
+                    st.success(f"📅 Predicted Price for {display_year}: **${prediction[0]:.2f} USD**")
                 
                 except Exception as e:
                     st.error(f"❌ Prediction failed: {str(e)}")
 
     except Exception as e:
         st.error(f"❌ Error loading file: {str(e)}")
-
-        
-       
-                       
-                   
-                            
-
-              
-       
-        
-        
-       
-                       
-                   
-                            
-
-              
-       
