@@ -56,6 +56,9 @@ if uploaded_file is not None:
             st.session_state.X_test = None
             st.session_state.y_train = None
             st.session_state.y_test = None
+            st.session_state.target_column = None
+            st.session_state.categorical_features_selected = []
+            st.session_state.numeric_features_selected = []
             st.session_state.uploaded_file_id = current_file_id
         
         df = pd.read_csv(uploaded_file)
@@ -88,6 +91,7 @@ if uploaded_file is not None:
         st.session_state.selected_features = selected_features
         
         target_column = st.selectbox("Select Target Column", df.columns.tolist())
+        st.session_state.target_column = target_column
 
         # Validate target column is numeric
         if target_column in selected_features and not pd.api.types.is_numeric_dtype(df[target_column]):
@@ -95,6 +99,7 @@ if uploaded_file is not None:
 
         # Remove target from selected features
         selected_features = [f for f in selected_features if f != target_column]
+        st.session_state.selected_features = selected_features
 
         # Data Preprocessing Button and Logic
         preprocess_button = st.button('Data Preprocessing', disabled=st.session_state.data_processed)
@@ -191,6 +196,12 @@ if uploaded_file is not None:
             except Exception as e:
                 st.error(f"❌ Preprocessing failed: {str(e)}")
 
+        # Show preprocessing status
+        if st.session_state.data_processed:
+            st.success("✅ Data Preprocessing completed. Ready to train model.")
+        else:
+            st.info("ℹ️ Please click 'Data Preprocessing' to proceed.")
+
         # Train Model Button and Logic
         train_button = st.button(
             "Train Model", 
@@ -198,9 +209,11 @@ if uploaded_file is not None:
         )
         if train_button:
             try:
-                # Validate that preprocessing was completed
-                if st.session_state.model is None:
-                    st.error("❌ Please complete Data Preprocessing first before training.")
+                # Double-check that all required data exists
+                if (st.session_state.model is None or 
+                    st.session_state.X_train is None or 
+                    st.session_state.y_train is None):
+                    st.error("❌ Error: Preprocessing data not found. Please run Data Preprocessing again.")
                     st.stop()
                 
                 model = st.session_state.model
@@ -209,7 +222,9 @@ if uploaded_file is not None:
                 X_test = st.session_state.X_test
                 y_test = st.session_state.y_test
 
-                model.fit(X_train, y_train)
+                with st.spinner("🔄 Training model..."):
+                    model.fit(X_train, y_train)
+                
                 st.session_state.model = model
                 st.success("✅ Model Trained Successfully!")
                 st.session_state.model_trained = True
@@ -226,12 +241,14 @@ if uploaded_file is not None:
 
         # Reset Model Button
         if st.session_state.model_trained:
-            if st.button("🔄 Reset Model"):
-                st.session_state.data_processed = False
-                st.session_state.model_trained = False
-                st.session_state.model = None
-                st.success("✅ Model reset. You can now preprocess and train a new model.")
-                st.rerun()
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("🔄 Reset Model"):
+                    st.session_state.data_processed = False
+                    st.session_state.model_trained = False
+                    st.session_state.model = None
+                    st.success("✅ Model reset. You can now preprocess and train a new model.")
+                    st.rerun()
 
         # Prediction Section
         if st.session_state.model and st.session_state.model_trained:
