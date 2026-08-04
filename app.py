@@ -7,7 +7,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 import streamlit as st
 
-# Initialize session state
+# Initialize session state with all required keys
 if "data_processed" not in st.session_state:
     st.session_state.data_processed = False
 if "model_trained" not in st.session_state:
@@ -20,6 +20,20 @@ if "df" not in st.session_state:
     st.session_state.df = None
 if "uploaded_file_id" not in st.session_state:
     st.session_state.uploaded_file_id = None
+if "X_train" not in st.session_state:
+    st.session_state.X_train = None
+if "X_test" not in st.session_state:
+    st.session_state.X_test = None
+if "y_train" not in st.session_state:
+    st.session_state.y_train = None
+if "y_test" not in st.session_state:
+    st.session_state.y_test = None
+if "categorical_features_selected" not in st.session_state:
+    st.session_state.categorical_features_selected = []
+if "numeric_features_selected" not in st.session_state:
+    st.session_state.numeric_features_selected = []
+if "target_column" not in st.session_state:
+    st.session_state.target_column = None
 
 # Streamlit UI
 st.title("Food Price Prediction App")
@@ -38,6 +52,10 @@ if uploaded_file is not None:
             st.session_state.model_trained = False
             st.session_state.model = None
             st.session_state.selected_features = []
+            st.session_state.X_train = None
+            st.session_state.X_test = None
+            st.session_state.y_train = None
+            st.session_state.y_test = None
             st.session_state.uploaded_file_id = current_file_id
         
         df = pd.read_csv(uploaded_file)
@@ -180,6 +198,11 @@ if uploaded_file is not None:
         )
         if train_button:
             try:
+                # Validate that preprocessing was completed
+                if st.session_state.model is None:
+                    st.error("❌ Please complete Data Preprocessing first before training.")
+                    st.stop()
+                
                 model = st.session_state.model
                 X_train = st.session_state.X_train
                 y_train = st.session_state.y_train
