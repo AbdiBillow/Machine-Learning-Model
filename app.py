@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
@@ -25,13 +24,13 @@ if "uploaded_file_name" not in st.session_state:
 
 # ---------- Reset function ----------
 def reset_app():
-    """Reset all processing/training states, keep uploaded file if any."""
+    """Reset all processing/training states."""
     st.session_state.data_processed = False
     st.session_state.model_trained = False
     st.session_state.model = None
     st.session_state.selected_features = []
     st.session_state.feature_types = {}
-    st.rerun()
+    # The button click will automatically rerun the app
 
 # ---------- UI ----------
 st.title("Food Price Prediction App")
@@ -238,15 +237,3 @@ if uploaded_file is not None:
         st.error(f"❌ Error loading file: {str(e)}")
 else:
     st.info("Please upload a CSV file to get started.")
-
-
-
-           
-
-        
-
-
-               
-
-                
-
