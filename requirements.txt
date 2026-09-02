@@ -5,4 +5,6 @@ scikit-learn
 matplotlib
 seaborn
 pytest
+xgboost>=2.0,<4
+joblib>=1.3,<2
 
