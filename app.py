@@ -32,7 +32,7 @@ REQUIRED_COLUMNS = {
 }
 FEATURES = ["Admin 2", "Market Name", "Commodity", "Month", "Year", "Currency", "Unit"]
 CATEGORICAL = ["Admin 2", "Market Name", "Commodity", "Currency", "Unit"]
-UNIT_LABELS = {"KG": "kg", "L": "litre", "Head": "head", "Unit": "unit"}
+UNIT_LABELS = {"KG": "kg", "L": "litre", "Head": "head"}
 NUMERIC = ["Month", "Year"]
 
 st.markdown("""
@@ -96,7 +96,7 @@ def clean_data(raw, sos_rate, sls_rate):
     data["Price"] = pd.to_numeric(data["Price"], errors="coerce")
     data = data.drop_duplicates()
     data["Unit"] = data["Unit"].astype("string").str.strip().str.upper().map(
-        {"KG": "KG", "L": "L", "HEAD": "Head", "UNIT": "Unit"}
+        {"KG": "KG", "L": "L", "HEAD": "Head"}
     )
     data = data[data["Unit"].isin(UNIT_LABELS)]
     data = data[~data["Commodity"].str.casefold().eq("exchange rate").fillna(False)]
@@ -205,7 +205,7 @@ with st.sidebar:
 st.markdown(
     f'<div class="hero"><div><span class="eyebrow">WFP FOOD PRICE DATA</span>'
     '<h1>Predict commodity prices with confidence.</h1>'
-    '<p>Upload market data, compare four regression algorithms, and estimate prices in USD per kg, litre, head, or unit—all in one workspace.</p></div>'
+    '<p>Upload market data, compare four regression algorithms, and estimate prices in USD per kg, litre, or head—all in one workspace.</p></div>'
     f'<div class="rate-card"><span>Currency assumption</span><b>1 USD = {sos_rate:,.0f} SOS</b><small>Change it from the sidebar</small></div></div>',
     unsafe_allow_html=True,
 )
@@ -218,7 +218,7 @@ signature = None
 if uploaded is not None:
     stage = 1
     file_bytes = uploaded.getvalue()
-    signature = hashlib.sha256(file_bytes + f"multi-unit-v1:{sos_rate}:{sls_rate}".encode()).hexdigest()
+    signature = hashlib.sha256(file_bytes + f"multi-unit-v2:{sos_rate}:{sls_rate}".encode()).hexdigest()
     if st.session_state.get("dataset_signature") != signature:
         st.session_state["dataset_signature"] = signature
         st.session_state["train_requested"] = False
@@ -237,8 +237,6 @@ if uploaded is not None:
             st.session_state.pop("prediction", None)
         cleaned = all_cleaned[all_cleaned["Unit"] == selected_unit].copy()
         st.caption("Each unit is trained and evaluated separately. Exchange-rate rows are excluded from price targets.")
-        if selected_unit == "Unit":
-            st.warning("The source labels these records as Unit. They are not assumed to equal Head. This group has very few observations.")
         stage = 2
     except Exception as exc:
         st.error(f"The data could not be prepared: {exc}")
