@@ -30,8 +30,9 @@ REQUIRED_COLUMNS = {
     "Admin 1", "Admin 2", "Market Name", "Commodity", "Price Date",
     "Price", "Unit", "Currency", "Data Type",
 }
-FEATURES = ["Admin 2", "Market Name", "Commodity", "Month", "Year", "Currency"]
-CATEGORICAL = ["Admin 2", "Market Name", "Commodity", "Currency"]
+FEATURES = ["Admin 2", "Market Name", "Commodity", "Month", "Year", "Currency", "Unit"]
+CATEGORICAL = ["Admin 2", "Market Name", "Commodity", "Currency", "Unit"]
+UNIT_LABELS = {"KG": "kg", "L": "litre", "Head": "head", "Unit": "unit"}
 NUMERIC = ["Month", "Year"]
 
 st.markdown("""
@@ -94,7 +95,11 @@ def clean_data(raw, sos_rate, sls_rate):
     data["Price Date"] = pd.to_datetime(data["Price Date"], dayfirst=True, errors="coerce")
     data["Price"] = pd.to_numeric(data["Price"], errors="coerce")
     data = data.drop_duplicates()
-    data = data[data["Unit"].str.upper().eq("KG")]
+    data["Unit"] = data["Unit"].astype("string").str.strip().str.upper().map(
+        {"KG": "KG", "L": "L", "HEAD": "Head", "UNIT": "Unit"}
+    )
+    data = data[data["Unit"].isin(UNIT_LABELS)]
+    data = data[~data["Commodity"].str.casefold().eq("exchange rate").fillna(False)]
     data = data[data["Data Type"].str.casefold().eq("aggregated")]
     data = data.dropna(subset=["Admin 2", "Market Name", "Commodity", "Price Date", "Price", "Currency"])
     data = data[data["Price"] > 0]
@@ -106,14 +111,14 @@ def clean_data(raw, sos_rate, sls_rate):
     data["Month"] = data["Price Date"].dt.month.astype(int)
     data["Year"] = data["Price Date"].dt.year.astype(int)
 
-    bounds = data.groupby("Commodity")["Price_USD"].quantile([0.01, 0.99]).unstack()
+    bounds = data.groupby(["Commodity", "Unit"])["Price_USD"].quantile([0.01, 0.99]).unstack()
     bounds.columns = ["lower", "upper"]
-    data = data.join(bounds, on="Commodity")
-    group_size = data.groupby("Commodity")["Commodity"].transform("size")
+    data = data.join(bounds, on=["Commodity", "Unit"])
+    group_size = data.groupby(["Commodity", "Unit"])["Commodity"].transform("size")
     keep = (group_size < 10) | data["Price_USD"].between(data["lower"], data["upper"])
     data = data.loc[keep].drop(columns=["lower", "upper"]).reset_index(drop=True)
     if len(data) < 50:
-        raise ValueError("Fewer than 50 usable historical 1-kg observations remain after cleaning.")
+        raise ValueError("Fewer than 50 usable historical commodity-price observations remain after cleaning.")
     return data
 
 
@@ -151,8 +156,14 @@ def estimators():
 def train_models(cleaned_csv):
     data = pd.read_csv(io.StringIO(cleaned_csv), parse_dates=["Price Date"])
     data = data.sort_values("Price Date").reset_index(drop=True)
-    split = int(len(data) * 0.8)
-    train, test = data.iloc[:split], data.iloc[split:]
+    if len(data) < 50 or data["Unit"].nunique() != 1:
+        raise ValueError("Training requires at least 50 observations from one unit.")
+    dates = np.sort(data["Price Date"].unique())
+    if len(dates) < 2:
+        raise ValueError("At least two distinct historical dates are required.")
+    cutoff = dates[min(max(int(len(dates) * 0.8), 1), len(dates) - 1)]
+    train = data[data["Price Date"] < cutoff]
+    test = data[data["Price Date"] >= cutoff]
     if train.empty or test.empty:
         raise ValueError("The dataset is too small to create chronological train and test sets.")
 
@@ -194,7 +205,7 @@ with st.sidebar:
 st.markdown(
     f'<div class="hero"><div><span class="eyebrow">WFP FOOD PRICE DATA</span>'
     '<h1>Predict commodity prices with confidence.</h1>'
-    '<p>Upload market data, compare four regression algorithms, and estimate the USD price of one kilogram—all in one workspace.</p></div>'
+    '<p>Upload market data, compare four regression algorithms, and estimate prices in USD per kg, litre, head, or unit—all in one workspace.</p></div>'
     f'<div class="rate-card"><span>Currency assumption</span><b>1 USD = {sos_rate:,.0f} SOS</b><small>Change it from the sidebar</small></div></div>',
     unsafe_allow_html=True,
 )
@@ -207,14 +218,27 @@ signature = None
 if uploaded is not None:
     stage = 1
     file_bytes = uploaded.getvalue()
-    signature = hashlib.sha256(file_bytes + f"{sos_rate}:{sls_rate}".encode()).hexdigest()
+    signature = hashlib.sha256(file_bytes + f"multi-unit-v1:{sos_rate}:{sls_rate}".encode()).hexdigest()
     if st.session_state.get("dataset_signature") != signature:
         st.session_state["dataset_signature"] = signature
         st.session_state["train_requested"] = False
         st.session_state.pop("prediction", None)
     try:
         raw_df = pd.read_csv(io.BytesIO(file_bytes))
-        cleaned = clean_data(raw_df, sos_rate, sls_rate)
+        all_cleaned = clean_data(raw_df, sos_rate, sls_rate)
+        selected_unit = st.selectbox(
+            "Unit to train and predict",
+            [unit for unit in UNIT_LABELS if unit in all_cleaned["Unit"].unique()],
+            format_func=lambda unit: f"USD per {UNIT_LABELS[unit]}",
+        )
+        if st.session_state.get("training_unit") != selected_unit:
+            st.session_state["training_unit"] = selected_unit
+            st.session_state["train_requested"] = False
+            st.session_state.pop("prediction", None)
+        cleaned = all_cleaned[all_cleaned["Unit"] == selected_unit].copy()
+        st.caption("Each unit is trained and evaluated separately. Exchange-rate rows are excluded from price targets.")
+        if selected_unit == "Unit":
+            st.warning("The source labels these records as Unit. They are not assumed to equal Head. This group has very few observations.")
         stage = 2
     except Exception as exc:
         st.error(f"The data could not be prepared: {exc}")
@@ -240,17 +264,19 @@ with left:
             st.info("Choose a CSV file above to begin.")
         elif cleaned is not None:
             success_note("Data uploaded successfully", f"{len(raw_df):,} rows received.")
-            success_note("Data preprocessed successfully", f"{len(cleaned):,} valid historical 1-kg records retained.")
+            success_note("Data preprocessed successfully", f"{len(cleaned):,} historical records for USD per {UNIT_LABELS[selected_unit]}.")
             with st.expander("Preview cleaned data"):
                 st.dataframe(cleaned.head(200), use_container_width=True, hide_index=True)
-            if st.button("▶  Train & compare models", type="primary", use_container_width=True):
+            if len(cleaned) < 50:
+                st.warning("At least 50 historical records are required for this unit. Upload more observations to train it.")
+            if st.button("▶  Train & compare models", type="primary", use_container_width=True, disabled=len(cleaned) < 50):
                 st.session_state["train_requested"] = True
                 st.session_state.pop("prediction", None)
                 st.rerun()
 
 with right:
     with st.container(border=True):
-        section_header("▥", "Model comparison", "Chronological 20% test set")
+        section_header("▥", "Model comparison", "Chronological test set for the selected unit")
         if cleaned is None or not st.session_state.get("train_requested"):
             st.info("Upload and preprocess data, then train the four algorithms.")
         else:
@@ -267,14 +293,14 @@ with right:
                 st.markdown(f'<div class="best-note"><b>✓ {best_name} selected</b><br><span>Lowest RMSE on unseen chronological data; retrained on all cleaned observations.</span></div>', unsafe_allow_html=True)
                 model_bytes = io.BytesIO()
                 joblib.dump(best_model, model_bytes)
-                st.download_button("Download best trained model", model_bytes.getvalue(), "best_food_price_model.joblib", "application/octet-stream", use_container_width=True)
+                st.download_button("Download best trained model", model_bytes.getvalue(), f"best_food_price_model_{selected_unit.lower()}.joblib", "application/octet-stream", use_container_width=True)
             except Exception as exc:
                 st.error(f"Model training failed: {exc}")
                 best_model = None
 
 if cleaned is not None and st.session_state.get("train_requested") and "best_model" in locals() and best_model is not None:
     with st.container(border=True):
-        section_header("↗", "Price prediction", "Select market conditions for a 1 kg estimate.")
+        section_header("↗", "Price prediction", f"Select market conditions for a USD per {UNIT_LABELS[selected_unit]} estimate.")
         c1, c2, c3, c4, c5 = st.columns([1.1, 1.1, 1.35, 1, 0.8])
         with c1:
             town = st.selectbox("Town", sorted(cleaned["Admin 2"].unique()))
@@ -295,11 +321,11 @@ if cleaned is not None and st.session_state.get("train_requested") and "best_mod
         if st.button("Predict price", type="primary", use_container_width=True):
             input_row = pd.DataFrame([{
                 "Admin 2": town, "Market Name": market, "Commodity": commodity,
-                "Month": int(month), "Year": int(year), "Currency": currency,
+                "Month": int(month), "Year": int(year), "Currency": currency, "Unit": selected_unit,
             }])
             predicted = max(float(best_model.predict(input_row)[0]), 0.0)
             st.session_state["prediction"] = {
-                "price": predicted, "commodity": commodity, "market": market,
+                "price": predicted, "commodity": commodity, "market": market, "unit": selected_unit,
                 "month": pd.Timestamp(2000, month, 1).strftime("%B"), "year": int(year),
             }
             st.rerun()
@@ -307,8 +333,8 @@ if cleaned is not None and st.session_state.get("train_requested") and "best_mod
         result = st.session_state.get("prediction")
         if result:
             st.markdown(
-                f'<div class="result"><small>PREDICTED RETAIL PRICE</small>'
-                f'<strong>${result["price"]:,.2f} <span>USD / kg</span></strong>'
+                f'<div class="result"><small>PREDICTED PRICE</small>'
+                f'<strong>${result["price"]:,.2f} <span>USD / {UNIT_LABELS[result["unit"]]}</span></strong>'
                 f'<p>{result["commodity"]} · {result["market"]} · {result["month"]} {result["year"]}</p></div>',
                 unsafe_allow_html=True,
             )
