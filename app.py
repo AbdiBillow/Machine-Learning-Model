@@ -153,7 +153,7 @@ def estimators():
 
 
 @st.cache_resource(show_spinner=False)
-def train_models(cleaned_csv):
+def train_unit_models(cleaned_csv):
     data = pd.read_csv(io.StringIO(cleaned_csv), parse_dates=["Price Date"])
     data = data.sort_values("Price Date").reset_index(drop=True)
     if len(data) < 50 or data["Unit"].nunique() != 1:
@@ -194,6 +194,28 @@ def train_models(cleaned_csv):
     return metrics, best_name, best_model
 
 
+@st.cache_resource(show_spinner=False)
+def train_models(cleaned_csv):
+    data = pd.read_csv(io.StringIO(cleaned_csv))
+    unit_models, best_names, comparisons, skipped = {}, {}, [], {}
+    for unit in UNIT_LABELS:
+        subset = data[data["Unit"] == unit]
+        if subset.empty:
+            continue
+        try:
+            metrics, name, model = train_unit_models(subset.to_csv(index=False))
+        except ValueError as exc:
+            skipped[unit] = str(exc)
+            continue
+        unit_models[unit] = model
+        best_names[unit] = name
+        metrics.insert(0, "Unit", unit)
+        comparisons.append(metrics)
+    if not unit_models:
+        raise ValueError("No unit could be trained. " + str(skipped))
+    return pd.concat(comparisons, ignore_index=True), best_names, unit_models, skipped
+
+
 st.markdown('<div class="brand"><span class="brand-mark">⌁</span><div><b>FoodPrice ML</b><small>Somalia market intelligence</small></div></div>', unsafe_allow_html=True)
 
 with st.sidebar:
@@ -218,25 +240,15 @@ signature = None
 if uploaded is not None:
     stage = 1
     file_bytes = uploaded.getvalue()
-    signature = hashlib.sha256(file_bytes + f"multi-unit-v2:{sos_rate}:{sls_rate}".encode()).hexdigest()
+    signature = hashlib.sha256(file_bytes + f"all-units-v3:{sos_rate}:{sls_rate}".encode()).hexdigest()
     if st.session_state.get("dataset_signature") != signature:
         st.session_state["dataset_signature"] = signature
         st.session_state["train_requested"] = False
         st.session_state.pop("prediction", None)
     try:
         raw_df = pd.read_csv(io.BytesIO(file_bytes))
-        all_cleaned = clean_data(raw_df, sos_rate, sls_rate)
-        selected_unit = st.selectbox(
-            "Unit to train and predict",
-            [unit for unit in UNIT_LABELS if unit in all_cleaned["Unit"].unique()],
-            format_func=lambda unit: f"USD per {UNIT_LABELS[unit]}",
-        )
-        if st.session_state.get("training_unit") != selected_unit:
-            st.session_state["training_unit"] = selected_unit
-            st.session_state["train_requested"] = False
-            st.session_state.pop("prediction", None)
-        cleaned = all_cleaned[all_cleaned["Unit"] == selected_unit].copy()
-        st.caption("Each unit is trained and evaluated separately. Exchange-rate rows are excluded from price targets.")
+        cleaned = clean_data(raw_df, sos_rate, sls_rate)
+        st.caption("Train all available units together, then select a unit when predicting. Each unit has its own models and error scores.")
         stage = 2
     except Exception as exc:
         st.error(f"The data could not be prepared: {exc}")
@@ -262,7 +274,7 @@ with left:
             st.info("Choose a CSV file above to begin.")
         elif cleaned is not None:
             success_note("Data uploaded successfully", f"{len(raw_df):,} rows received.")
-            success_note("Data preprocessed successfully", f"{len(cleaned):,} historical records for USD per {UNIT_LABELS[selected_unit]}.")
+            success_note("Data preprocessed successfully", f"{len(cleaned):,} historical records across {cleaned['Unit'].nunique()} units.")
             with st.expander("Preview cleaned data"):
                 st.dataframe(cleaned.head(200), use_container_width=True, hide_index=True)
             if len(cleaned) < 50:
@@ -274,35 +286,45 @@ with left:
 
 with right:
     with st.container(border=True):
-        section_header("▥", "Model comparison", "Chronological test set for the selected unit")
+        section_header("▥", "Model comparison", "Chronological model comparisons for each unit")
         if cleaned is None or not st.session_state.get("train_requested"):
             st.info("Upload and preprocess data, then train the four algorithms.")
         else:
             try:
                 with st.spinner("Training XGBoost, Linear Regression, Random Forest, and SVM…"):
-                    metrics, best_name, best_model = train_models(cleaned.to_csv(index=False))
-                success_note("Models trained successfully", f"{best_name} achieved the lowest test RMSE.")
+                    metrics, best_names, unit_models, skipped = train_models(cleaned.to_csv(index=False))
+                success_note("Models trained successfully", f"Best model selected separately for each of {len(unit_models)} units.")
                 formatted = metrics.copy()
                 formatted["MAE (USD)"] = formatted["MAE (USD)"].map(lambda x: f"${x:,.4f}")
                 formatted["RMSE (USD)"] = formatted["RMSE (USD)"].map(lambda x: f"${x:,.4f}")
                 formatted["R²"] = formatted["R²"].map(lambda x: f"{x:,.4f}")
                 formatted["MAPE (%)"] = formatted["MAPE (%)"].map(lambda x: f"{x:,.2f}%")
                 st.dataframe(formatted, use_container_width=True, hide_index=True)
-                st.markdown(f'<div class="best-note"><b>✓ {best_name} selected</b><br><span>Lowest RMSE on unseen chronological data; retrained on all cleaned observations.</span></div>', unsafe_allow_html=True)
+                for unit, name in best_names.items():
+                    st.write(f"USD per {UNIT_LABELS[unit]}: {name}")
+                for unit, reason in skipped.items():
+                    st.warning(f"{unit} was not trained: {reason}")
                 model_bytes = io.BytesIO()
-                joblib.dump(best_model, model_bytes)
-                st.download_button("Download best trained model", model_bytes.getvalue(), f"best_food_price_model_{selected_unit.lower()}.joblib", "application/octet-stream", use_container_width=True)
+                joblib.dump({"models": unit_models, "best_algorithms": best_names, "features": FEATURES}, model_bytes)
+                st.download_button("Download models for all units", model_bytes.getvalue(), "food_price_models_by_unit.joblib", "application/octet-stream", use_container_width=True)
             except Exception as exc:
                 st.error(f"Model training failed: {exc}")
-                best_model = None
+                unit_models = {}
 
-if cleaned is not None and st.session_state.get("train_requested") and "best_model" in locals() and best_model is not None:
+if cleaned is not None and st.session_state.get("train_requested") and "unit_models" in locals() and unit_models:
     with st.container(border=True):
-        section_header("↗", "Price prediction", f"Select market conditions for a USD per {UNIT_LABELS[selected_unit]} estimate.")
+        section_header("↗", "Price prediction", "Choose the unit and market conditions.")
+        selected_unit = st.selectbox("Prediction unit", list(unit_models), format_func=lambda u: f"USD per {UNIT_LABELS[u]}")
+        if st.session_state.get("prediction_unit") != selected_unit:
+            st.session_state["prediction_unit"] = selected_unit
+            st.session_state.pop("prediction", None)
+        best_model = unit_models[selected_unit]
+        prediction_data = cleaned[cleaned["Unit"] == selected_unit]
+
         c1, c2, c3, c4, c5 = st.columns([1.1, 1.1, 1.35, 1, 0.8])
         with c1:
-            town = st.selectbox("Town", sorted(cleaned["Admin 2"].unique()))
-        town_data = cleaned[cleaned["Admin 2"] == town]
+            town = st.selectbox("Town", sorted(prediction_data["Admin 2"].unique()))
+        town_data = prediction_data[prediction_data["Admin 2"] == town]
         with c2:
             market = st.selectbox("Market", sorted(town_data["Market Name"].unique()))
         market_data = town_data[town_data["Market Name"] == market]
@@ -310,12 +332,12 @@ if cleaned is not None and st.session_state.get("train_requested") and "best_mod
             commodity = st.selectbox("Commodity", sorted(market_data["Commodity"].unique()))
         with c4:
             month = st.selectbox("Month", range(1, 13), format_func=lambda m: pd.Timestamp(2000, m, 1).strftime("%B"))
-        min_year, max_year = int(cleaned["Year"].min()), int(cleaned["Year"].max())
+        min_year, max_year = int(prediction_data["Year"].min()), int(prediction_data["Year"].max())
         with c5:
             year = st.number_input("Year", min_value=min_year, max_value=max_year + 10, value=max_year + 1, step=1)
 
         currency_mode = market_data[market_data["Commodity"] == commodity]["Currency"].mode()
-        currency = currency_mode.iloc[0] if not currency_mode.empty else cleaned["Currency"].mode().iloc[0]
+        currency = currency_mode.iloc[0] if not currency_mode.empty else prediction_data["Currency"].mode().iloc[0]
         if st.button("Predict price", type="primary", use_container_width=True):
             input_row = pd.DataFrame([{
                 "Admin 2": town, "Market Name": market, "Commodity": commodity,
@@ -341,3 +363,4 @@ if cleaned is not None and st.session_state.get("train_requested") and "best_mod
                 st.warning("This year is beyond the historical data range. Uncertainty increases farther into the future.")
 
 st.markdown('<p class="disclaimer">Predictions are statistical estimates based on the uploaded historical data and exchange-rate assumptions. They should support—not replace—market monitoring and professional judgment.</p>', unsafe_allow_html=True)
+
